@@ -1,0 +1,133 @@
+---
+title: "Final Report"
+author: "Alex Cluff"
+date: "4/14/2021"
+output:
+  github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.width=9)
+library(gapminder)
+library(tidyverse)
+library(gridExtra)
+```
+
+|   Gapminder is an independent non-profit organization that promotes a fact-based worldview. The dataset in question is a excerpt of the open data available from gapminder. The data consists of life expectancy, GDP per capita, and population by country. The time frame ranges from 1952 to 2007 in increments of 5 years. The GDP is in USD and is adjusted for inflation. There are a total of `r length(unique(gapminder$country))` countries included. Only countries that have existed for the entire time frame are included. This excludes all of the countries that became independent from the dissolution of the Soviet Union as well as many others. For this analysis I will be focusing on finding predictors or causes of low or high life expectancy.
+```{r fig.height=2}
+gapminder %>%
+  group_by(continent) %>%
+  summarize(Observations = n(), Countries = n_distinct(country)) %>% 
+  tableGrob(rows = NULL) %>% 
+  grid.arrange()
+```
+
+
+|   With time comes better technology, innovation, health care, and many more things. All of these come into effect for life expectancy. What is very interesting is when there is a large deviation from the general upward trend and what is can tell us about history.
+
+```{r}
+gapminder %>%
+  ggplot(aes(year, lifeExp, color = continent)) +
+    geom_point() +
+    geom_smooth(se = FALSE) +
+    labs(title = "Life Expectancy Over Time", caption = "figure 1") +
+    geom_jitter(width = 1, height = 0)
+```
+
+Africa stands out in this graph. Not only is it much lower over time, but it's trend slowed down in progress since the 80s. There was the Ethiopian famine, the Rwandan genocide (distinctly visible in 1992) as well as the HIV epidemic. There are also see some sharp drops in Asia. Below are the  decreases in life expectancy in Africa and Asia. The largest decreases in Asia correspond with genocide in Cambodia and violent dictatorships.
+
+```{r}
+le <- 
+  gapminder %>%
+  group_by(country) %>%
+  select(country, year, continent, lifeExp) %>%
+  mutate(lifeExp = round(lifeExp, 3), le_delta = lifeExp - lag(lifeExp)) %>% 
+  arrange(le_delta)
+
+africa_top6 <- 
+  le %>% 
+  filter(continent == "Africa") %>% 
+  head() %>% 
+  tableGrob()
+
+asia_top6 <- 
+  le %>% 
+  filter(continent == "Asia") %>% 
+  head() %>%
+  tableGrob()
+
+le_den <- 
+  le %>% 
+  ggplot(aes(lifeExp)) +
+    geom_density(aes(group = year, color = year)) +
+    scale_color_gradient(low = "green", high = "darkblue") +
+    labs(caption = "figure 2")
+
+layout1 <- matrix(c(1,2,3,3), nrow = 2)
+
+grid.arrange(africa_top6, asia_top6, le_den, layout_matrix = layout1)
+```
+
+Figure 1 (above) is a great visualization of how the distribution of life expectancy has changed over the years.
+
+
+|   Although it might seem reasonable that overpopulation causes decreases in quality of life and life expectancy, that is not the case. Population has little to no effect on life expectancy (as seen in figure 4 below). It may be becoming true in more recent years. Countries that have a higher population tend to deal with air pollution more. We have yet to see the lasting effects of living day-to-day life in an environment like that. GDP on the other hand has a strong correlation with life expectancy. The rank of continent's median GDP is in the same order as life expectancy in the box-plot. I mentioned earlier of the advancements in health care and technology are the reason for the increase in life expectancy over time. The GDP of a country can describe what kind of access the average person in each of these countries has to these advancements. The following graphs and tables are exclusive to 2007 for this reason. Picking a single time out of the data takes out much of the correlation that is taking place over time and focuses on GDP much better.
+
+```{r}
+gg1 <- gapminder %>% 
+  filter(year == 2007) %>% 
+  ggplot(aes(pop, lifeExp, color = continent)) +
+    geom_point(show.legend = F) +
+    labs(x = "log10 Population", title = "Life Expectancy vs Population in 2007", caption = "figure 4") +
+    scale_x_log10()
+
+gg2 <- gapminder %>% 
+  filter(year == 2007) %>%
+  ggplot(aes(continent, lifeExp, fill = continent)) +
+    geom_boxplot(show.legend = F) + 
+    labs(title = "Life Expectancy by Continent in 2007", caption = "figure 3")
+
+tb2 <- gapminder %>% 
+  filter(year == 2007) %>% 
+  group_by(continent) %>% 
+  summarise(median_GDP_2007 = median(gdpPercap)) %>%
+  arrange(desc(median_GDP_2007)) %>% 
+  tableGrob()
+
+layout2 <- matrix(c(1,1,3,2), nrow = 2)
+
+grid.arrange(gg2, gg1, tb2, layout_matrix = layout2)
+```
+
+```{r fig.height=3}
+gg3 <- gapminder %>% 
+  filter(year == 2007) %>% 
+  ggplot() +
+    geom_point(aes(gdpPercap, lifeExp, color = continent, size = pop)) +
+    labs(title = "Life Expectancy vs GDP in 2007", caption = "figure 6")
+
+gg4 <- gapminder %>% 
+  filter(year == 2007) %>% 
+  ggplot() +
+    geom_density(aes(gdpPercap), fill = "lightblue") +
+    labs(title = "distribution of GDP in 2007", caption = "figure 5")
+
+grid.arrange(gg4, gg3, nrow = 1)
+```
+
+The relationship between life expectancy and GDP is very evident in figure 6 (above). However, the distribution of GDP shows that the relationship would be much closer to linear with a log scale. Life expectancy and GDP is graphed below in figure 7 with a log scale on the x axis. This shows how well log(GDP) along with the year would fit into a linear regression model.
+
+```{r}
+gapminder %>% 
+  filter(year == 2007) %>% 
+  ggplot(aes(gdpPercap, lifeExp, size = pop)) +
+    geom_smooth(method = "lm", show.legend = F) +
+    geom_point(aes(color = continent)) +
+    labs(title = "Life Expectancy vs GDP in 2007") +
+    scale_x_log10() +
+    labs(x = "gdpPercap on log10 scale", caption = "figure 7")
+```
+
+|   In conclusion, there are many suitable predictors of life expectancy. High GDP will result in a longer life on average. Poverty on the other hand has the opposite effect. Violent events such as genocide can also be identified by looking at large deviations in life expectancy. 
+
+
