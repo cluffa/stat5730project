@@ -2,8 +2,7 @@
 title: "Final Report"
 author: "Alex Cluff"
 date: "4/14/2021"
-output:
-  github_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
